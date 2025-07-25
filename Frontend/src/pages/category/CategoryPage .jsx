@@ -15,7 +15,6 @@ export default function CategoryPage() {
   // Sort products function
   const sortProducts = (products, sortType) => {
     const sortedProducts = [...products];
-    console.log("Sorting products by:", sortedProducts);
     switch (sortType) {
       case "price-low":
         return sortedProducts.sort((a, b) => a.price - b.price);

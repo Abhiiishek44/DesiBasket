@@ -3,11 +3,19 @@ import axios from "axios";
 import { Link } from "react-router-dom";
 import { CartContext } from "../../context/CartContext.jsx";
 import { WishListContext } from "../../context/WishListContext.jsx";
+import SearchProducts from "../SearchProducts.jsx"; // Add this import
+
 export default function UserDashboard() {
   const { cartItem, addToCart } = useContext(CartContext);
-  const { addToWishList, wishListItems, setWishListItems } =
-    useContext(WishListContext);
+  const { addToWishList, wishListItems } = useContext(WishListContext);
+  
+  // State management
   const [allProducts, setAllProducts] = useState([]);
+  const [filteredProducts, setFilteredProducts] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+
   useEffect(() => {
     fetchAllProducts();
   }, []);
@@ -15,13 +23,95 @@ export default function UserDashboard() {
     const response = await axios.get("http://localhost:3000/user/all-products");
     // Handle the response to set all products
     if (response.status === 200) {
-      console.log("All products fetched successfully:", response.data.products);
       setAllProducts(response.data.products);
     }
   };
 
+  // Enhanced search function with debouncing and better performance
+  const handleSearchInput = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    setShowSearchDropdown(true);
+    
+    // Clear previous timeout
+    if (window.searchTimeout) {
+      clearTimeout(window.searchTimeout);
+    }
+    
+    if (value.trim() === '') {
+      setFilteredProducts([]);
+      setIsSearching(false);
+      return;
+    }
+    
+    setIsSearching(true);
+    
+    // Debounce search to avoid too many operations
+    window.searchTimeout = setTimeout(() => {
+      try {
+        const searchValue = value.toLowerCase().trim();
+        const filtered = allProducts.filter(product => {
+          const name = product.name?.toLowerCase() || '';
+          const category = product.category?.toLowerCase() || '';
+          const description = product.description?.toLowerCase() || '';
+          
+          return name.includes(searchValue) || 
+                 category.includes(searchValue) || 
+                 description.includes(searchValue);
+        });
+        
+        setFilteredProducts(filtered);
+        setIsSearching(false);
+      } catch (error) {
+        console.error('Search error:', error);
+        setFilteredProducts([]);
+        setIsSearching(false);
+      }
+    }, 300);
+  };
+
+  // Enhanced clear search function
+  const clearSearch = () => {
+    // Clear any pending search timeout
+    if (window.searchTimeout) {
+      clearTimeout(window.searchTimeout);
+    }
+    
+    setSearchTerm("");
+    setFilteredProducts([]);
+    setSearchResults([]);
+    setShowSearchDropdown(false);
+    setShowSearchResults(false);
+    setIsSearching(false);
+  };
+
+  // Cleanup timeout on component unmount
+  useEffect(() => {
+    return () => {
+      if (window.searchTimeout) {
+        clearTimeout(window.searchTimeout);
+      }
+    };
+  }, []);
+   // Enhanced click outside handler
+   useEffect(() => {
+     const handleClickOutside = (event) => {
+       // Check if click is outside the search container
+       const searchContainer = event.target.closest('.relative');
+       if (!searchContainer) {
+         setShowSearchDropdown(false);
+       }
+     };
+
+     document.addEventListener('mousedown', handleClickOutside);
+     return () => {
+       document.removeEventListener('mousedown', handleClickOutside);
+     };
+   }, []);
+
+
   return (
-    <div className="min-h-screen bg-[#ffffff]">
+    <div className="h-screen bg-[#ffffff]">
       {/* Flipkart-style Header */}
       <header className="bg-white shadow-sm sticky top-0 z-50">
         <div className="bg-[#2874f0] px-4 py-2">
@@ -42,24 +132,65 @@ export default function UserDashboard() {
                   <input
                     type="text"
                     placeholder="Search for products..."
-                    className="w-full px-4 py-2 pl-10 bg-white border-0 text-gray-700 placeholder-gray-500 focus:outline-none"
+                    className="w-full px-4 py-2 pl-10 pr-10 bg-white border-0 text-gray-700 placeholder-gray-500 focus:outline-none rounded-lg"
+                    value={searchTerm}
+                    onChange={handleSearchInput}
+                    onFocus={() => setShowSearchDropdown(true)}
                   />
+                  
+                  {/* Search Icon or Loading Spinner */}
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center">
-                    <svg
-                      className="w-4 h-4 text-[#2874f0]"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
+                    {isSearching ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#2874f0]"></div>
+                    ) : (
+                      <svg
+                        className="w-4 h-4 text-[#2874f0]"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                    )}
                   </div>
+
+                  {/* Clear Search Button */}
+                  {searchTerm && (
+                    <button
+                      onClick={clearSearch}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    >
+                      <svg
+                        className="w-4 h-4 text-gray-400 hover:text-gray-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  )}
                 </div>
+
+                {/* Search Results Dropdown */}
+                {searchTerm && showSearchDropdown && (
+                  <SearchProducts 
+                    searchResults={filteredProducts}
+                    searchTerm={searchTerm}
+                    onClearSearch={clearSearch}
+                    isSearching={isSearching}
+                  />
+                )}
               </div>
 
               {/* Right Actions */}
@@ -124,13 +255,17 @@ export default function UserDashboard() {
         </div>
       </header>
 
+
+      {/* Main Content */}
+      {/* Search results are now shown as dropdown in header, remove this section */}
+
       {/* Category Navigation */}
       <section className="bg-white border-b border-gray-100 py-4 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold text-gray-900">
               Categories
-            </h2>
+            </h2> 
             <button className="text-xs text-[#3b82f6] hover:text-[#2563eb] font-medium flex items-center">
               View All
               <svg
@@ -294,7 +429,7 @@ export default function UserDashboard() {
               </span>
             </Link>
             <Link
-              tp="category/book"
+              to="category/book"
               className="flex flex-col items-center cursor-pointer group bg-gray-50 hover:bg-[#3b82f6] rounded-lg p-2 transition-all duration-300"
             >
               <div className="w-8 h-8 bg-white group-hover:bg-white/20 rounded-lg flex items-center justify-center shadow-sm mb-1">
@@ -695,7 +830,7 @@ export default function UserDashboard() {
                     fill="currentColor"
                     viewBox="0 0 24 24"
                   >
-                    <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.174-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.219-.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999" />
+                    <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 11.174-.105-.949-.199-2.403.041-3.439.219-.937 1.406-5.957 1.406-5.957s-.359-.219-.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999s.359-.219.359-1.219c0-1.141.219-1.999.219-1.999" />
                   </svg>
                 </a>
               </div>

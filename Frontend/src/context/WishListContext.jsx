@@ -21,11 +21,7 @@ export function WishListProvider({ children }) {
             `http://localhost:3000/wishlist/${userId}`
           );
           if (response.status === 200) {
-            console.log("Wishlist response:", response.data);
             const items = response.data.wishlist?.items || [];
-            console.log("Wishlist items:", items);
-
-            // ✅ Fixed: Properly map the items and ensure it's an array
             const mappedItems = items.map((item) => ({
               ...item.product,
               _id: item.product._id || item._id, // Ensure we have an ID
